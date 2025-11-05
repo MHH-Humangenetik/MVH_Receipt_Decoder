@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>IBE Segment Parser (MV GenomSeq)</title>
+
+    <!-- Milligram CSS für minimales Styling -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/milligram/1.4.1/milligram.min.css"
+      xintegrity="sha512-xiunq9hpKsIcz42zt0o2vcojRESifN+YroiL55NDBFU7EaZtNo8vyvr8BINnGS"
+      crossorigin="anonymous"
+    />
+
+    <style>
+      /* Ein paar kleine Anpassungen für bessere Lesbarkeit */
+      body {
+        font-family: Avenir, Montserrat, Corbel, "URW Gothic", source-sans-pro,
+          sans-serif;
+        margin-top: 2rem;
+        line-height: 1.5;
+      }
+      .container {
+        max-width: 960px;
+      }
+      textarea {
+        font-family: "Nimbus Mono PS", "Courier New", monospace;
+      }
+      #results {
+        margin-top: 2rem;
+        padding: 1.5rem;
+        background-color: #f4f5f6;
+        border-radius: 4px;
+        display: none; /* Wird per JS eingeblendet */
+      }
+      /* Definitionsliste für die Ergebnisse */
+      dl {
+        margin-bottom: 1.5rem;
+      }
+      dt {
+        font-weight: bold;
+        color: #555;
+        width: 30%;
+        float: left;
+        clear: left;
+        margin-bottom: 0.5rem;
+      }
+      dd {
+        width: 70%;
+        float: left;
+        margin-left: 0;
+        margin-bottom: 0.5rem;
+      }
+      dl::after {
+        content: "";
+        display: table;
+        clear: both;
+      }
+      .error {
+        color: #d33c40; /* Milligram Rot */
+        font-weight: bold;
+      }
+      .success {
+        color: #3c91e6; /* Milligram Blau (als Erfolgs-Indikator) */
+        font-weight: bold;
+      }
+      .validation-ok {
+        color: #4caf50; /* Grün */
+        font-weight: bold;
+      }
+      .validation-warn {
+        color: #ff9800; /* Orange */
+        font-weight: bold;
+      }
+      h3 {
+        border-bottom: 2px solid #eee;
+        padding-bottom: 5px;
+      }
+      .site-footer {
+        margin-top: 3rem;
+        padding: 1rem 0;
+        border-top: 1px solid #eee;
+        font-size: 0.9rem;
+        color: #666;
+      }
+      .site-footer p {
+        margin: 0;
+      }
+      @media (prefers-color-scheme: dark) {
+        body {
+          background: #121212;
+          color: #e6e6e6;
+        }
+        a {
+          color: #c792ea;
+        }
+        pre,
+        code {
+          background: #1e1e1e;
+        }
+        input,
+        select,
+        textarea,
+        #results {
+          background: #1e1e1e;
+          color: #e6e6e6;
+          border-color: #333;
+        }
+        button,
+        .button {
+          background: #7c3aad;
+          border-color: #7c3aad;
+          color: #fff;
+        }
+        hr,
+        table,
+        th,
+        td {
+          border-color: #333;
+        }
+        dt {
+          color: #aaa;
+        }
+        .site-footer {
+          border-top-color: #333;
+          color: #aaa;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="container">
+      <h1>Modellvorhaben Genomsequenzierung</h1>
+      <h2>Meldebestätigung Decodierer</h2>
+      <p>
+        Fügen Sie den vollständigen IBE-Segment-String aus der Meldebestätigung
+        ein, um die enthaltenen Daten zu decodieren.
+      </p>
+
+      <form>
+        <fieldset>
+          <label for="ibeInput">IBE-Segment-String</label>
+          <textarea
+            placeholder="z.B. IBE+A123456789+A123456789&20240701001..."
+            id="ibeInput"
+          ></textarea>
+          <button type="button" class="button button-primary" id="parseButton">
+            String analysieren
+          </button>
+        </fieldset>
+      </form>
+
+      <div id="results"></div>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">
+        <p>
+          <a
+            href="https://github.com/MHH-Humangenetik/MVH_Receipt_Decoder"
+            target="_blank"
+            rel="noopener noreferrer"
+            >MVH_Receipt_Decoder</a
+          >
+          erstellt von 
+          <a
+            href="https://github.com/BeneKenobi"
+            target="_blank"
+            rel="noopener noreferrer"
+            >@BeneKenobi</a
+          >
+          für das 
+          <a
+            href="https://github.com/MHH-Humangenetik"
+            target="_blank"
+            rel="noopener noreferrer"
+            >Institut für Humangenetik der MHH</a
+          >
+        </p>
+      </div>
+    </footer>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        const ibeInput = document.getElementById("ibeInput");
+        const parseButton = document.getElementById("parseButton");
+        const resultsContainer = document.getElementById("results");
+
+        parseButton.addEventListener("click", parseIBEString);
+
+        function showError(message) {
+          resultsContainer.innerHTML = `<h3 class="error">Fehler bei der Analyse</h3><p>${message}</p>`;
+          resultsContainer.style.display = "block";
+        }
+
+        function decodeTyp(code) {
+          switch (code) {
+            case "0":
+              return "Erstmeldung";
+            case "1":
+              return "Follow-Up";
+            case "2":
+              return "Nachmeldung";
+            case "3":
+              return "Korrektur";
+            case "9":
+              return "Testmeldung";
+            default:
+              return "Unbekannter Code";
+          }
+        }
+
+        function decodeIndikation(code) {
+          switch (code) {
+            case "O":
+              return "Onkologische Erkrankung";
+            case "R":
+              return "Seltene Erkrankung";
+            case "H":
+              return "Hereditäres Tumorprädispositionssyndrom";
+            default:
+              return "Unbekannter Code";
+          }
+        }
+
+        function decodeProdukt(code) {
+          switch (code) {
+            case "9":
+              return "MV GenomSeq";
+            case "0":
+              return "Keine";
+            case "1":
+              return "Spezialangefertigtes Implantat oder Implantat mit Sonderzulassung";
+            default:
+              return "Unbekannter Code";
+          }
+        }
+
+        function decodeKosten(code) {
+          switch (code) {
+            case "1":
+              return "GKV";
+            case "2":
+              return "PKV";
+            case "3":
+              return "PKV/Beihilfe";
+            case "4":
+              return "Andere";
+            default:
+              return "Unbekannter Code";
+          }
+        }
+
+        function decodeDaten(code) {
+          switch (code) {
+            case "C":
+              return "Klinische Daten";
+            case "G":
+              return "Genomische Daten";
+            default:
+              return "Unbekannter Code";
+          }
+        }
+
+        function decodeSequenzierung(code) {
+          switch (code) {
+            case "0":
+              return "Keine";
+            case "1":
+              return "WGS";
+            case "2":
+              return "WES";
+            case "3":
+              return "Panel";
+            case "4":
+              return "WGS_LR";
+            default:
+              return "Unbekannter Code";
+          }
+        }
+
+        function decodeQC(code) {
+          switch (code) {
+            case "0":
+              return "Nicht bestanden";
+            case "1":
+              return "Bestanden";
+            default:
+              return "Unbekannter Code";
+          }
+        }
+
+        async function sha256(message) {
+          try {
+            // 1. Text in einen Buffer umwandeln (UTF-8)
+            const msgBuffer = new TextEncoder().encode(message);
+
+            // 2. Hash berechnen
+            const hashBuffer = await crypto.subtle.digest("SHA-256", msgBuffer);
+
+            // 3. Buffer in ein Array von Bytes umwandeln
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+
+            // 4. Jedes Byte in einen Hex-String umwandeln (mit '0' padding)
+            const hashHex = hashArray
+              .map((b) => b.toString(16).padStart(2, "0"))
+              .join("");
+
+            return hashHex;
+          } catch (e) {
+            console.error("SHA-256 Fehler:", e);
+            return "Fehler bei der Hash-Berechnung";
+          }
+        }
+
+        async function parseIBEString() {
+          const input = ibeInput.value.trim();
+
+          try {
+            const ibeParts = input.split("+");
+
+            if (ibeParts.length !== 5 || ibeParts[0] !== "IBE") {
+              showError(
+                `Der String ist kein valides IBE-Segment. Erwartet: 5 Teile, beginnend mit 'IBE'. Gefunden: ${ibeParts.length} Teile.`
+              );
+              return;
+            }
+
+            const ibeSegment = {
+              kennung: ibeParts[0],
+              idMeldebestaetigung: ibeParts[1],
+              hashString: ibeParts[2],
+              produktzuordnung: ibeParts[3],
+              hashWert: ibeParts[4],
+            };
+
+            const hashParts = ibeSegment.hashString.split("&");
+
+            if (hashParts.length !== 11) {
+              showError(
+                `Der Hash-String ist nicht valide. Erwartet: 11 Teile, getrennt mit '&'. Gefunden: ${hashParts.length} Teile.`
+              );
+              return;
+            }
+
+            const hashData = {
+              alphaCode: hashParts[0],
+              leistung: hashParts[1],
+              leisterID: hashParts[2],
+              knotenID: hashParts[3],
+              typ: hashParts[4],
+              indikation: hashParts[5],
+              produkt: hashParts[6],
+              kosten: hashParts[7],
+              daten: hashParts[8],
+              seq: hashParts[9],
+              qc: hashParts[10],
+            };
+
+            const calculatedHash = await sha256(ibeSegment.hashString);
+            const hashMatch = calculatedHash === ibeSegment.hashWert;
+
+            const idMatch =
+              ibeSegment.idMeldebestaetigung === hashData.alphaCode;
+            const produktMatch =
+              ibeSegment.produktzuordnung === hashData.produkt;
+
+            const isErstmeldung = hashData.typ === "0";
+            const isQCBestanden = hashData.qc === "1";
+            const isAbrechnungsrelevant = isErstmeldung && isQCBestanden;
+
+            buildResultHtml(
+              ibeSegment,
+              hashData,
+              idMatch,
+              produktMatch,
+              isAbrechnungsrelevant,
+              hashMatch,
+              calculatedHash
+            );
+            resultsContainer.style.display = "block";
+          } catch (e) {
+            console.error("Parser-Fehler:", e);
+            showError(`Ein unerwarteter Fehler ist aufgetreten: ${e.message}`);
+          }
+        }
+
+        function buildResultHtml(
+          ibe,
+          hash,
+          idMatch,
+          produktMatch,
+          isAbrechnungsrelevant,
+          hashMatch,
+          calculatedHash
+        ) {
+          const datum = hash.leistung.substring(0, 8);
+          const zaehler = hash.leistung.substring(8);
+          const datumFormatted =
+            datum.length === 8
+              ? `${datum.substring(0, 4)}-${datum.substring(
+                  4,
+                  6
+                )}-${datum.substring(6, 8)}`
+              : "Ungültiges Datum";
+
+          let html = "";
+
+          if (isAbrechnungsrelevant && hashMatch) {
+            html += `<h3 class="success">✅ Abrechnungsrelevant & Hash OK</h3>`;
+          } else if (isAbrechnungsrelevant && !hashMatch) {
+            html += `<h3 class="error">❌ HASH-FEHLER! (Wäre abrechnungsrelevant)</h3>`;
+          } else {
+            html += `<h3 class="validation-warn">⚠️ Nicht abrechnungsrelevant</h3>`;
+            let grund = "";
+            if (hash.typ !== "0")
+              grund += `<li>Typ ist '${hash.typ}' (${decodeTyp(
+                hash.typ
+              )}), nicht '0' (Erstmeldung).</li>`;
+            if (hash.qc !== "1")
+              grund += `<li>QC ist '${hash.qc}' (${decodeQC(
+                hash.qc
+              )}), nicht '1' (Bestanden).</li>`;
+            html += `<p><strong>Grund:</strong></p><p>${grund}</p>`;
+          }
+
+          html += "<h3>IBE-Segment-Daten</h3>";
+          html += "<dl>";
+          html += `<dt>Kennung</dt><dd>${ibe.kennung}</dd>`;
+          html += `<dt>ID Meldebest.</dt><dd>${ibe.idMeldebestaetigung}</dd>`;
+          html += `<dt>Hash-String</dt><dd style="word-break: break-all;">${ibe.hashString}</dd>`;
+          html += `<dt>Produktzuordnung</dt><dd>${
+            ibe.produktzuordnung
+          } (${decodeProdukt(ibe.produktzuordnung)})</dd>`;
+          html += `<dt>Hashwert (Übermittelt)</dt><dd style="word-break: break-all;">${ibe.hashWert}</dd>`;
+
+          html += `<dt style="color: #3C91E6;"><em>Berechneter Hash</em></dt>
+                         <dd style="word-break: break-all; font-family: 'Courier New', Courier, monospace;">
+                            ${calculatedHash} 
+                            <span class="${
+                              hashMatch ? "validation-ok" : "error"
+                            }">
+                                (${
+                                  hashMatch
+                                    ? "✅ Stimmt überein"
+                                    : "❌ FEHLER: Stimmt NICHT überein!"
+                                })
+                            </span>
+                         </dd>`;
+
+          html += "</dl>";
+
+          html += "<h3>Details aus Hash-String</h3>";
+          html += "<dl>";
+          html += `<dt>Alphanum. Code</dt>
+                         <dd>${hash.alphaCode} 
+                            <span class="${
+                              idMatch ? "validation-ok" : "error"
+                            }">
+                                (${
+                                  idMatch
+                                    ? "✅ OK"
+                                    : "FEHLER: Nicht identisch mit ID Meldebest."
+                                })
+                            </span>
+                         </dd>`;
+          html += `<dt>Leistungsdatum</dt><dd>${datumFormatted} (Zähler: ${zaehler})</dd>`;
+          html += `<dt>ID Leisterbringer</dt><dd>${hash.leisterID}</dd>`;
+          html += `<dt>ID Datenknoten</dt><dd>${hash.knotenID}</dd>`;
+          html += `<dt>Typ der Meldung</dt><dd>${hash.typ} (${decodeTyp(
+            hash.typ
+          )})</dd>`;
+          html += `<dt>Indikationsbereich</dt><dd>${
+            hash.indikation
+          } (${decodeIndikation(hash.indikation)})</dd>`;
+          html += `<dt>Produktzuordnung</dt>
+                         <dd>${hash.produkt} (${decodeProdukt(hash.produkt)})
+                            <span class="${
+                              produktMatch ? "validation-ok" : "error"
+                            }">
+                                (${
+                                  produktMatch
+                                    ? "✅ OK"
+                                    : "FEHLER: Nicht identisch mit IBE-Produktzuordnung"
+                                })
+                            </span>
+                         </dd>`;
+          html += `<dt>Kostenträger</dt><dd>${hash.kosten} (${decodeKosten(
+            hash.kosten
+          )})</dd>`;
+          html += `<dt>Art der Daten</dt><dd>${hash.daten} (${decodeDaten(
+            hash.daten
+          )})</dd>`;
+          html += `<dt>Art der Sequenzierung</dt><dd>${
+            hash.seq
+          } (${decodeSequenzierung(hash.seq)})</dd>`;
+          html += `<dt>Ergebnis QC</dt><dd>${hash.qc} (${decodeQC(
+            hash.qc
+          )})</dd>`;
+          html += "</dl>";
+
+          resultsContainer.innerHTML = html;
+        }
+      });
+    </script>
+  </body>
+</html>
