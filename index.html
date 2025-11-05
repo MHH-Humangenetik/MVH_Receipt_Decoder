@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>IBE Segment Parser (MV GenomSeq)</title>
 
+    <!-- CSS Reset -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.css"
+    />
+
     <!-- Milligram CSS für minimales Styling -->
     <link
       rel="stylesheet"
@@ -14,23 +20,108 @@
     />
 
     <style>
-      /* Ein paar kleine Anpassungen für bessere Lesbarkeit */
+      /* Rosé Pine Palette variables (Dawn + Moon) */
+      :root {
+        /* Dawn */
+        --rp-dawn-base: #faf4ed;
+        --rp-dawn-surface: #fffaf3;
+        --rp-dawn-overlay: #f2e9e1;
+        --rp-dawn-muted: #9893a5;
+        --rp-dawn-subtle: #797593;
+        --rp-dawn-text: #575279;
+        --rp-dawn-love: #b4637a;
+        --rp-dawn-gold: #ea9d34;
+        --rp-dawn-rose: #d7827e;
+        --rp-dawn-pine: #286983;
+        --rp-dawn-foam: #56949f;
+        --rp-dawn-iris: #907aa9;
+        --rp-dawn-highlight-low: #f4ede8;
+        --rp-dawn-highlight-med: #dfdad9;
+        --rp-dawn-highlight-high: #cecacd;
+
+        /* Moon */
+        --rp-moon-base: #232136;
+        --rp-moon-surface: #2a273f;
+        --rp-moon-overlay: #393552;
+        --rp-moon-muted: #6e6a86;
+        --rp-moon-subtle: #908caa;
+        --rp-moon-text: #e0def4;
+        --rp-moon-love: #eb6f92;
+        --rp-moon-gold: #f6c177;
+        --rp-moon-rose: #ea9a97;
+        --rp-moon-pine: #3e8fb0;
+        --rp-moon-foam: #9ccfd8;
+        --rp-moon-iris: #c4a7e7;
+        --rp-moon-highlight-low: #2a283e;
+        --rp-moon-highlight-med: #44415a;
+        --rp-moon-highlight-high: #56526e;
+
+        /* App theme tokens (light defaults = Dawn) */
+        color-scheme: light;
+        --bg: var(--rp-dawn-base);
+        --text: var(--rp-dawn-text);
+        --panel: var(--rp-dawn-surface);
+        --overlay: var(--rp-dawn-overlay);
+        --muted: var(--rp-dawn-muted);
+        --subtle: var(--rp-dawn-subtle);
+        --link: var(--rp-dawn-iris);
+        --border: var(--rp-dawn-highlight-high);
+        --accent: var(--rp-dawn-iris);
+        --error: var(--rp-dawn-love);
+        --warn: var(--rp-dawn-gold);
+        --ok: var(--rp-dawn-pine);
+        --info: var(--rp-dawn-foam);
+        --code-bg: var(--rp-dawn-highlight-low);
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          color-scheme: dark;
+          --bg: var(--rp-moon-base);
+          --text: var(--rp-moon-text);
+          --panel: var(--rp-moon-surface);
+          --overlay: var(--rp-moon-overlay);
+          --muted: var(--rp-moon-muted);
+          --subtle: var(--rp-moon-subtle);
+          --link: var(--rp-moon-iris);
+          --border: var(--rp-moon-highlight-high);
+          --accent: var(--rp-moon-iris);
+          --error: var(--rp-moon-love);
+          --warn: var(--rp-moon-gold);
+          --ok: var(--rp-moon-pine);
+          --info: var(--rp-moon-foam);
+          --code-bg: var(--rp-moon-highlight-low);
+        }
+      }
+
+      /* Basistypografie und Layout */
       body {
         font-family: Avenir, Montserrat, Corbel, "URW Gothic", source-sans-pro,
           sans-serif;
         margin-top: 2rem;
         line-height: 1.5;
+        background: var(--bg);
+        color: var(--text);
       }
       .container {
         max-width: 960px;
       }
+      a {
+        color: var(--link);
+      }
       textarea {
         font-family: "Nimbus Mono PS", "Courier New", monospace;
       }
+      pre,
+      code {
+        background: var(--code-bg);
+      }
+
       #results {
         margin-top: 2rem;
         padding: 1.5rem;
-        background-color: #f4f5f6;
+        background-color: var(--panel);
+        border: 1px solid var(--border);
         border-radius: 4px;
         display: none; /* Wird per JS eingeblendet */
       }
@@ -40,7 +131,7 @@
       }
       dt {
         font-weight: bold;
-        color: #555;
+        color: var(--subtle);
         width: 30%;
         float: left;
         clear: left;
@@ -58,74 +149,57 @@
         clear: both;
       }
       .error {
-        color: #d33c40; /* Milligram Rot */
+        color: var(--error);
         font-weight: bold;
       }
       .success {
-        color: #3c91e6; /* Milligram Blau (als Erfolgs-Indikator) */
+        color: var(--ok);
         font-weight: bold;
       }
       .validation-ok {
-        color: #4caf50; /* Grün */
+        color: var(--ok);
         font-weight: bold;
       }
       .validation-warn {
-        color: #ff9800; /* Orange */
+        color: var(--warn);
         font-weight: bold;
       }
       h3 {
-        border-bottom: 2px solid #eee;
+        border-bottom: 2px solid var(--border);
         padding-bottom: 5px;
       }
       .site-footer {
         margin-top: 3rem;
         padding: 1rem 0;
-        border-top: 1px solid #eee;
+        border-top: 1px solid var(--border);
         font-size: 0.9rem;
-        color: #666;
+        color: var(--muted);
       }
       .site-footer p {
         margin: 0;
       }
-      @media (prefers-color-scheme: dark) {
-        body {
-          background: #121212;
-          color: #e6e6e6;
-        }
-        a {
-          color: #c792ea;
-        }
-        pre,
-        code {
-          background: #1e1e1e;
-        }
-        input,
-        select,
-        textarea,
-        #results {
-          background: #1e1e1e;
-          color: #e6e6e6;
-          border-color: #333;
-        }
-        button,
-        .button {
-          background: #7c3aad;
-          border-color: #7c3aad;
-          color: #fff;
-        }
-        hr,
-        table,
-        th,
-        td {
-          border-color: #333;
-        }
-        dt {
-          color: #aaa;
-        }
-        .site-footer {
-          border-top-color: #333;
-          color: #aaa;
-        }
+
+      input,
+      select,
+      textarea {
+        background: var(--panel);
+        color: var(--text);
+        border-color: var(--border);
+      }
+
+      button,
+      .button,
+      .button-primary {
+        background: var(--overlay);
+        border-color: var(--accent);
+        color: var(--text);
+      }
+
+      hr,
+      table,
+      th,
+      td {
+        border-color: var(--border);
       }
     </style>
   </head>
@@ -163,14 +237,14 @@
             rel="noopener noreferrer"
             >MVH_Receipt_Decoder</a
           >
-          erstellt von 
+          erstellt von
           <a
             href="https://github.com/BeneKenobi"
             target="_blank"
             rel="noopener noreferrer"
             >@BeneKenobi</a
           >
-          für das 
+          für das
           <a
             href="https://github.com/MHH-Humangenetik"
             target="_blank"
@@ -408,21 +482,21 @@
           let html = "";
 
           if (isAbrechnungsrelevant && hashMatch) {
-            html += `<h3 class="success">✅ Abrechnungsrelevant & Hash OK</h3>`;
-          } else if (isAbrechnungsrelevant && !hashMatch) {
-            html += `<h3 class="error">❌ HASH-FEHLER! (Wäre abrechnungsrelevant)</h3>`;
+            html += `<h3 class="success">Abrechnungsrelevant</h3>`;
+          } else if (!hashMatch) {
+            html += `<h3 class="error">HASH-FEHLER!</h3>`;
           } else {
-            html += `<h3 class="validation-warn">⚠️ Nicht abrechnungsrelevant</h3>`;
+            html += `<h3 class="validation-warn">Nicht abrechnungsrelevant!</h3>`;
             let grund = "";
             if (hash.typ !== "0")
-              grund += `<li>Typ ist '${hash.typ}' (${decodeTyp(
+              grund += `Typ ist '${hash.typ}' (${decodeTyp(
                 hash.typ
               )}), nicht '0' (Erstmeldung).</li>`;
             if (hash.qc !== "1")
-              grund += `<li>QC ist '${hash.qc}' (${decodeQC(
+              grund += `QC ist '${hash.qc}' (${decodeQC(
                 hash.qc
               )}), nicht '1' (Bestanden).</li>`;
-            html += `<p><strong>Grund:</strong></p><p>${grund}</p>`;
+            html += `<p><strong>Grund:</strong><br />${grund}</p>`;
           }
 
           html += "<h3>IBE-Segment-Daten</h3>";
@@ -435,16 +509,15 @@
           } (${decodeProdukt(ibe.produktzuordnung)})</dd>`;
           html += `<dt>Hashwert (Übermittelt)</dt><dd style="word-break: break-all;">${ibe.hashWert}</dd>`;
 
-          html += `<dt style="color: #3C91E6;"><em>Berechneter Hash</em></dt>
-                         <dd style="word-break: break-all; font-family: 'Courier New', Courier, monospace;">
+          html += `<dt style="color: var(--info);"><em>Berechneter Hash</em></dt>
+                         <dd style="word-break: break-all;">
                             ${calculatedHash} 
-                            <span class="${
+                            <br /><span class="${
                               hashMatch ? "validation-ok" : "error"
-                            }">
-                                (${
+                            }">(${
                                   hashMatch
-                                    ? "✅ Stimmt überein"
-                                    : "❌ FEHLER: Stimmt NICHT überein!"
+                                    ? "Stimmt überein"
+                                    : "FEHLER: Stimmt NICHT überein!"
                                 })
                             </span>
                          </dd>`;
@@ -460,7 +533,7 @@
                             }">
                                 (${
                                   idMatch
-                                    ? "✅ OK"
+                                    ? "OK"
                                     : "FEHLER: Nicht identisch mit ID Meldebest."
                                 })
                             </span>
@@ -481,7 +554,7 @@
                             }">
                                 (${
                                   produktMatch
-                                    ? "✅ OK"
+                                    ? "OK"
                                     : "FEHLER: Nicht identisch mit IBE-Produktzuordnung"
                                 })
                             </span>
