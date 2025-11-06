@@ -446,7 +446,9 @@
 
             const isErstmeldung = hashData.typ === "0";
             const isQCBestanden = hashData.qc === "1";
-            const isAbrechnungsrelevant = isErstmeldung && isQCBestanden;
+            const isMVHProdukt = hashData.produkt === "9";
+            const isAbrechnungsrelevant =
+              isErstmeldung && isQCBestanden && isMVHProdukt;
 
             buildResultHtml(
               ibeSegment,
@@ -454,6 +456,8 @@
               idMatch,
               produktMatch,
               isAbrechnungsrelevant,
+              isMVHProdukt,
+              isErstmeldung,
               hashMatch,
               calculatedHash
             );
@@ -470,6 +474,8 @@
           idMatch,
           produktMatch,
           isAbrechnungsrelevant,
+          isMVHProdukt,
+          isErstmeldung,
           hashMatch,
           calculatedHash
         ) {
@@ -493,40 +499,19 @@
             html += `<h3 class="validation-warn">Nicht abrechnungsrelevant!</h3>`;
             let grund = "";
             if (hash.typ !== "0")
-              grund += `Typ ist '${hash.typ}' (${decodeTyp(
+              grund += `<li>Typ ist '${hash.typ}' (${decodeTyp(
                 hash.typ
               )}), nicht '0' (Erstmeldung).</li>`;
             if (hash.qc !== "1")
-              grund += `QC ist '${hash.qc}' (${decodeQC(
+              grund += `<li>QC ist '${hash.qc}' (${decodeQC(
                 hash.qc
               )}), nicht '1' (Bestanden).</li>`;
-            html += `<p><strong>Grund:</strong><br />${grund}</p>`;
+            if (hash.produkt !== "9")
+              grund += `<li>Produkt ist '${hash.produkt}' (${decodeProdukt(
+                hash.produkt
+              )}), nicht '9' (MV GenomSeq).</li>`;
+            html += `<div style="border-left: 4px solid var(--warn); padding-left: 1rem;"><h4>Grund:</h4><ul>${grund}</ul></div>`;
           }
-
-          html += "<h3>IBE-Segment-Daten</h3>";
-          html += "<dl>";
-          html += `<dt>Kennung</dt><dd>${ibe.kennung}</dd>`;
-          html += `<dt>ID Meldebest.</dt><dd>${ibe.idMeldebestaetigung}</dd>`;
-          html += `<dt>Hash-String</dt><dd style="word-break: break-all;">${ibe.hashString}</dd>`;
-          html += `<dt>Produktzuordnung</dt><dd>${
-            ibe.produktzuordnung
-          } (${decodeProdukt(ibe.produktzuordnung)})</dd>`;
-          html += `<dt>Hashwert (Übermittelt)</dt><dd style="word-break: break-all;">${ibe.hashWert}</dd>`;
-
-          html += `<dt style="color: var(--info);"><em>Berechneter Hash</em></dt>
-                         <dd style="word-break: break-all;">
-                            ${calculatedHash} 
-                            <br /><span class="${
-                              hashMatch ? "validation-ok" : "error"
-                            }">(${
-                                  hashMatch
-                                    ? "Stimmt überein"
-                                    : "FEHLER: Stimmt NICHT überein!"
-                                })
-                            </span>
-                         </dd>`;
-
-          html += "</dl>";
 
           html += "<h3>Details aus Hash-String</h3>";
           html += "<dl>";
@@ -545,21 +530,25 @@
           html += `<dt>Leistungsdatum</dt><dd>${datumFormatted} (Zähler: ${zaehler})</dd>`;
           html += `<dt>ID Leisterbringer</dt><dd>${hash.leisterID}</dd>`;
           html += `<dt>ID Datenknoten</dt><dd>${hash.knotenID}</dd>`;
-          html += `<dt>Typ der Meldung</dt><dd>${hash.typ} (${decodeTyp(
-            hash.typ
-          )})</dd>`;
+          html += `<dt>Typ der Meldung</dt><dd>${hash.typ} <span class="${
+            hash.typ == 0 ? "validation-ok" : "validation-warn"
+          }">(${decodeTyp(hash.typ)})</span></dd>`;
           html += `<dt>Indikationsbereich</dt><dd>${
             hash.indikation
           } (${decodeIndikation(hash.indikation)})</dd>`;
           html += `<dt>Produktzuordnung</dt>
                          <dd>${hash.produkt} (${decodeProdukt(hash.produkt)})
                             <span class="${
-                              produktMatch ? "validation-ok" : "error"
+                              produktMatch && isMVHProdukt
+                                ? "validation-ok"
+                                : "error"
                             }">
                                 (${
-                                  produktMatch
+                                  produktMatch && isMVHProdukt
                                     ? "OK"
-                                    : "FEHLER: Nicht identisch mit IBE-Produktzuordnung"
+                                    : !produktMatch
+                                    ? "FEHLER: Nicht identisch mit Produktzuordnung"
+                                    : "FEHLER: Nicht MV GenomSeq (9)"
                                 })
                             </span>
                          </dd>`;
@@ -572,9 +561,32 @@
           html += `<dt>Art der Sequenzierung</dt><dd>${
             hash.seq
           } (${decodeSequenzierung(hash.seq)})</dd>`;
-          html += `<dt>Ergebnis QC</dt><dd>${hash.qc} (${decodeQC(
-            hash.qc
-          )})</dd>`;
+          html += `<dt>Ergebnis QC</dt><dd>${hash.qc} <span class="${
+            hash.qc == 1 ? "validation-ok" : "error"
+          }">(${decodeQC(hash.qc)})</span></dd>`;
+          html += "</dl>";
+
+          html += "<h3>IBE-Segment-Daten</h3>";
+          html += "<dl>";
+          html += `<dt>Kennung</dt><dd>${ibe.kennung}</dd>`;
+          html += `<dt>ID Meldebest.</dt><dd>${ibe.idMeldebestaetigung}</dd>`;
+          html += `<dt>Hash-String</dt><dd style="word-break: break-all;">${ibe.hashString}</dd>`;
+          html += `<dt>Produktzuordnung</dt><dd>${
+            ibe.produktzuordnung
+          } (${decodeProdukt(ibe.produktzuordnung)})</dd>`;
+          html += `<dt>Hashwert (Übermittelt)</dt><dd style="word-break: break-all;">${ibe.hashWert}</dd>`;
+
+          html += `<dt style="color: var(--info);"><em>Berechneter Hash</em></dt>
+                         <dd style="word-break: break-all;">
+                            ${calculatedHash} 
+                            <br /><span class="${
+                              hashMatch ? "validation-ok" : "error"
+                            }">(${
+            hashMatch ? "Stimmt überein" : "FEHLER: Stimmt NICHT überein!"
+          })
+                            </span>
+                         </dd>`;
+
           html += "</dl>";
 
           resultsContainer.innerHTML = html;
